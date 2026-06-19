@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/*
+  AidLockIn design tokens.
+  Light, businesslike surface for every operational screen; one deliberately
+  dark, high-stakes surface reserved for the Race Demo — the single signature
+  moment of the product. See /mnt/skills/public/frontend-design guidance:
+  spend the boldness in one place, keep everything else disciplined.
+*/
+:root {
+  --alk-bg: #f4f5f9;
+  --alk-surface: #ffffff;
+  --alk-surface-muted: #f8f9fc;
+  --alk-border: #e5e7ef;
+  --alk-ink: #14151f;
+  --alk-ink-muted: #5b5e6c;
+  --alk-ink-faint: #8a8d9c;
+
+  --alk-primary: #2a2f7d;
+  --alk-primary-hover: #363c99;
+  --alk-primary-ink: #ffffff;
+  --alk-primary-tint: #e8eafb;
+  --alk-primary-tint-strong: #dee2fb;
+
+  --alk-success: #1d7948;
+  --alk-success-tint: #e7f6ec;
+  --alk-success-border: #bfe5cc;
+
+  --alk-warning: #b66e1c;
+  --alk-warning-tint: #fcf1e3;
+  --alk-warning-border: #f0d6ae;
+
+  --alk-danger: #b3261e;
+  --alk-danger-tint: #fbeae9;
+  --alk-danger-border: #efc6c3;
+
+  --alk-dark-bg: #10121e;
+  --alk-dark-surface: #1b1e29;
+  --alk-dark-surface-2: #232634;
+  --alk-dark-border: #2c2f3f;
+  --alk-dark-ink: #f3f4f9;
+  --alk-dark-ink-muted: #9398ac;
+
+  --background: var(--alk-bg);
+  --foreground: var(--alk-ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-bg: var(--alk-bg);
+  --color-surface: var(--alk-surface);
+  --color-surface-muted: var(--alk-surface-muted);
+  --color-border: var(--alk-border);
+  --color-ink: var(--alk-ink);
+  --color-ink-muted: var(--alk-ink-muted);
+  --color-ink-faint: var(--alk-ink-faint);
+
+  --color-primary: var(--alk-primary);
+  --color-primary-hover: var(--alk-primary-hover);
+  --color-primary-ink: var(--alk-primary-ink);
+  --color-primary-tint: var(--alk-primary-tint);
+  --color-primary-tint-strong: var(--alk-primary-tint-strong);
+
+  --color-success: var(--alk-success);
+  --color-success-tint: var(--alk-success-tint);
+  --color-success-border: var(--alk-success-border);
+
+  --color-warning: var(--alk-warning);
+  --color-warning-tint: var(--alk-warning-tint);
+  --color-warning-border: var(--alk-warning-border);
+
+  --color-danger: var(--alk-danger);
+  --color-danger-tint: var(--alk-danger-tint);
+  --color-danger-border: var(--alk-danger-border);
+
+  --color-dark-bg: var(--alk-dark-bg);
+  --color-dark-surface: var(--alk-dark-surface);
+  --color-dark-surface-2: var(--alk-dark-surface-2);
+  --color-dark-border: var(--alk-dark-border);
+  --color-dark-ink: var(--alk-dark-ink);
+  --color-dark-ink-muted: var(--alk-dark-ink-muted);
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono-claim);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "tnum" 1;
+}
+
+/* Reusable, hand-rolled component classes (kept deliberately small —
+   no component framework, just disciplined Tailwind + a few primitives). */
+@layer components {
+  .alk-card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
+  .alk-input {
+    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-[15px] text-ink placeholder:text-ink-faint outline-none transition focus:border-primary focus:ring-2 focus:ring-primary-tint;
+  }
+  .alk-chip-toggle {
+    @apply rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-ink-muted transition hover:border-primary/40;
+  }
+  .alk-chip-toggle[data-active="true"] {
+    @apply border-primary bg-primary-tint text-primary;
+  }
+}
+
+@keyframes alk-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.alk-live-dot {
+  animation: alk-pulse 1.8s ease-in-out infinite;
+}
