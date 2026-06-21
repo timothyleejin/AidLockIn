@@ -1,6 +1,7 @@
 import {
   CalendarPlus,
   PackagePlus,
+  PackageCheck,
   CircleCheck,
   ShieldAlert,
   TriangleAlert,
@@ -20,6 +21,7 @@ interface ActionMeta {
 export const ACTION_META: Record<AuditAction, ActionMeta> = {
   EVENT_CREATED: { label: "Event opened", icon: CalendarPlus, tone: "primary" },
   AID_TYPE_CREATED: { label: "Aid type added", icon: PackagePlus, tone: "primary" },
+  POOL_RESTOCKED: { label: "Stock replenished", icon: PackageCheck, tone: "success" },
   ALLOCATION_APPROVED: { label: "Allocated", icon: CircleCheck, tone: "success" },
   ALLOCATION_DENIED_DUPLICATE: { label: "Duplicate blocked", icon: ShieldAlert, tone: "danger" },
   ALLOCATION_DENIED_NO_STOCK: { label: "Out of stock", icon: TriangleAlert, tone: "warning" },

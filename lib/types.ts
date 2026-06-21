@@ -25,6 +25,7 @@ export type DemoRole = "FIELD" | "COORDINATOR" | "DONOR" | "ADMIN";
 export type AuditAction =
   | "EVENT_CREATED"
   | "AID_TYPE_CREATED"
+  | "POOL_RESTOCKED"
   | "ALLOCATION_APPROVED"
   | "ALLOCATION_DENIED_DUPLICATE"
   | "ALLOCATION_DENIED_NO_STOCK"
@@ -140,5 +141,6 @@ export interface StatsResponse {
   totalAllocations: number;
   byAidType: { aidTypeName: string; icon: string; approved: number; denied: number }[];
   pendingOverrides: number;
+  lowStock: { aidTypeName: string; icon: string; remaining: number; total: number }[];
   recentActivity: AuditEventRow[];
 }

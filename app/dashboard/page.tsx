@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, ShieldAlert, Boxes, ScrollText, ArrowRight } from "lucide-react";
+import { Users, ShieldAlert, Boxes, ScrollText, ArrowRight, PackageX } from "lucide-react";
 import { Topbar } from "@/components/app-shell/topbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,37 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {!!stats?.lowStock.length && (
+          <Card className="mt-6 border-danger-border bg-danger-tint">
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PackageX className="h-4 w-4 text-danger" />
+                  <h4 className="text-sm font-semibold text-danger">
+                    {stats.lowStock.length} pool{stats.lowStock.length === 1 ? "" : "s"} running low
+                  </h4>
+                </div>
+                <Link href="/pools" className="flex items-center gap-1 text-xs font-medium text-danger">
+                  Restock <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {stats.lowStock.map((item) => {
+                  const Icon = getAidTypeIcon(item.icon);
+                  return (
+                    <span
+                      key={item.aidTypeName}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-danger-border bg-surface px-2.5 py-1 text-xs font-medium text-danger"
+                    >
+                      <Icon className="h-3.5 w-3.5" /> {item.aidTypeName} · {item.remaining}/{item.total}
+                    </span>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {!!stats?.pendingOverrides && (
           <Card className="mt-6 border-warning-border bg-warning-tint">

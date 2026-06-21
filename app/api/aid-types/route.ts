@@ -130,3 +130,45 @@ export async function POST(req: NextRequest) {
     return { id: aidTypeId };
   });
 }
+
+// Replenish a POOL aid type's stock. Bumps both total and remaining by the
+// same amount so the "remaining of total" ratio stays meaningful, and logs
+// the restock to the audit chain like every other state change.
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body) return jsonError("Invalid JSON body");
+
+  return withErrorHandling(async () => {
+    const eventId = requireString(body.eventId, "eventId");
+    const aidTypeId = requireString(body.aidTypeId, "aidTypeId");
+    const addQuantity = Math.floor(Number(body.addQuantity));
+    if (!Number.isFinite(addQuantity) || addQuantity <= 0) {
+      throw new Error("addQuantity must be a positive number");
+    }
+
+    const { rows } = await db.query<{ remaining_quantity: number; total_quantity: number }>(
+      `UPDATE resource_pools
+       SET total_quantity = total_quantity + $1,
+           remaining_quantity = remaining_quantity + $1,
+           updated_at = now()
+       WHERE aid_type_id = $2 AND event_id = $3
+       RETURNING remaining_quantity, total_quantity`,
+      [addQuantity, aidTypeId, eventId]
+    );
+    if (rows.length === 0) throw new Error("No stock pool exists for this aid type");
+
+    const nameResult = await db.query<{ name: string }>(`SELECT name FROM aid_types WHERE id = $1`, [aidTypeId]);
+    const name = nameResult.rows[0]?.name ?? "Aid";
+
+    await appendAuditEvent(db, {
+      eventId,
+      action: "POOL_RESTOCKED",
+      actorName: typeof body.actorName === "string" ? body.actorName : "System",
+      actorRole: typeof body.actorRole === "string" ? body.actorRole : "ADMIN",
+      aidTypeId,
+      detail: `${name} restocked by ${addQuantity}. Remaining: ${rows[0].remaining_quantity}.`,
+    });
+
+    return { remaining: rows[0].remaining_quantity, total: rows[0].total_quantity };
+  });
+}
