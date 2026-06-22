@@ -8,6 +8,33 @@ true (see `lib/db.ts`). Use this to point the app at a live DSQL cluster.
 This step needs the AWS CLI and AWS credentials, which are interactive and
 account-specific — it can't be automated from inside the repo. Steps:
 
+## There is no Aurora DSQL container or local emulator
+
+Aurora DSQL is a **managed, cloud-only** service — AWS ships no local emulator
+or Docker image for it (verified June 2026). So "set up the DSQL container"
+isn't possible; the two real options are:
+
+| Goal | Use | Gets you |
+|---|---|---|
+| **Full DSQL capability** (OCC `40001` race, multi-region, IAM auth) | A real DSQL cluster in AWS — steps below | Everything, including the race demo's true behavior |
+| **Fast local dev / CI** | The **Postgres 16 container** in `docker-compose.yml` | The entire app + tests, except OCC semantics |
+
+DSQL is PostgreSQL 16-compatible, so the bundled `postgres:16` container is the
+closest local parity. Spin it up with:
+
+```bash
+docker compose up -d
+echo 'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aidlockin' >> .env.local
+npm run db:migrate && npm run db:seed && npm run dev
+```
+
+What the container **cannot** reproduce: DSQL resolves two concurrent writes to
+the same row with a commit-time `40001` conflict that the connector retries;
+Postgres uses row locks instead (see `lib/db.ts`). The race demo therefore only
+tells its full story on a real cluster — provision one below. (For AI-assisted
+work against a live cluster, AWS also publishes an
+[Aurora DSQL MCP server](https://awslabs.github.io/mcp/servers/aurora-dsql-mcp-server).)
+
 ## 1. Install + authenticate the AWS CLI
 
 ```bash

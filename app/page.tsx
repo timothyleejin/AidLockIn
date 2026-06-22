@@ -7,6 +7,7 @@ import { Topbar } from "@/components/app-shell/topbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppState } from "@/components/app-shell/providers";
+import { BrandLogo } from "@/components/app-shell/brand";
 import { formatRelativeTime, cn } from "@/lib/utils";
 import { ACTION_META, TONE_ICON_BG, TONE_ICON_TEXT } from "@/components/audit-meta";
 import { StatTile } from "@/components/stat-tile";
@@ -48,8 +49,9 @@ export default function OverviewPage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <div className="alk-card relative overflow-hidden p-10">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-tint px-3 py-1 text-xs font-semibold text-primary">
-              Hackathon demo · Aurora DSQL + Vercel
+            <BrandLogo variant="hero" />
+            <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-primary-tint px-3 py-1 text-xs font-semibold text-primary">
+              Aurora DSQL + Vercel
             </span>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Allocate scarce aid once. Prove it everywhere.

@@ -1,0 +1,37 @@
+# Local development database for AidLockIn.
+#
+# Aurora DSQL has NO local emulator or container (it's a managed cloud service,
+# PostgreSQL 16-compatible). This runs Postgres 16 — the same major version
+# DSQL targets — so local dev matches production as closely as possible.
+#
+# The one behavior this CANNOT reproduce is DSQL's optimistic-concurrency
+# `40001` commit-time conflict that powers the race demo; Postgres resolves
+# that contention with row locks instead (see lib/db.ts). For that, point the
+# app at a real DSQL cluster — see DSQL_SETUP.md.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aidlockin npm run db:migrate
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aidlockin npm run db:seed
+#   (or put that DATABASE_URL in .env.local and just `npm run dev`)
+
+services:
+  db:
+    image: postgres:16
+    container_name: aidlockin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aidlockin
+    ports:
+      - "5432:5432"
+    volumes:
+      - aidlockin-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aidlockin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  aidlockin-pgdata:
