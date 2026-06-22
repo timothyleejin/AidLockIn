@@ -13,9 +13,9 @@ import {
   ShieldAlert,
   ScrollText,
   BarChart3,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "./brand";
 import { useAppState } from "./providers";
 import type { DemoRole } from "@/lib/types";
 
@@ -55,15 +55,10 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-full w-64 flex-shrink-0 flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-ink">
-          <ShieldCheck className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="text-[15px] font-semibold leading-none text-ink">AidLockIn</div>
-          <div className="text-xs text-ink-faint">Allocate once, everywhere</div>
-        </div>
-      </div>
+      <Link href="/" className="flex flex-col gap-1 px-5 py-5">
+        <BrandLogo />
+        <span className="text-xs text-ink-faint">Allocate once, everywhere</span>
+      </Link>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
         {NAV_ITEMS.map((item) => {

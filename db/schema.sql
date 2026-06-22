@@ -259,7 +259,12 @@ CREATE TABLE audit_events (
   payload               TEXT,
   prev_hash             TEXT NOT NULL,
   hash                  TEXT NOT NULL,
-  created_at            TIMESTAMP NOT NULL DEFAULT now()
+  -- TIMESTAMPTZ (not TIMESTAMP) on purpose: the audit hash commits to this
+  -- value as a UTC ISO string. A tz-naive TIMESTAMP is read back by the driver
+  -- in the server's local timezone, so verifyAuditChain() would recompute a
+  -- different instant and every hash would fail to verify outside UTC. A
+  -- timezone-aware column round-trips the exact instant on any backend.
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX ASYNC IF NOT EXISTS ix_audit_event_order

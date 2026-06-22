@@ -6,6 +6,7 @@ import { Topbar } from "@/components/app-shell/topbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useAppState } from "@/components/app-shell/providers";
 import { getAidTypeIcon, AID_TYPE_ICON_OPTIONS } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,14 @@ export default function PoolsPage() {
       <div className="mx-auto max-w-5xl px-6 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {aidTypes.map((aidType) => (
-            <AidTypeCard key={aidType.id} aidType={aidType} />
+            <AidTypeCard
+              key={aidType.id}
+              aidType={aidType}
+              eventId={eventId}
+              actorName={identity.name}
+              actorRole={role}
+              onChanged={refresh}
+            />
           ))}
         </div>
 
@@ -63,22 +71,62 @@ export default function PoolsPage() {
   );
 }
 
-function AidTypeCard({ aidType }: { aidType: AidType }) {
+function AidTypeCard({
+  aidType,
+  eventId,
+  actorName,
+  actorRole,
+  onChanged,
+}: {
+  aidType: AidType;
+  eventId: string | null;
+  actorName: string;
+  actorRole: string;
+  onChanged: () => void;
+}) {
   const Icon = getAidTypeIcon(aidType.icon);
   const isPool = aidType.resource_model === "POOL";
   const pct = isPool && aidType.total_quantity
     ? Math.round(((aidType.remaining_quantity ?? 0) / aidType.total_quantity) * 100)
     : 0;
+  const lowStock = isPool && (aidType.total_quantity ?? 0) > 0 && pct <= 25;
+
+  const [restockAmount, setRestockAmount] = useState("50");
+  const [restocking, setRestocking] = useState(false);
+
+  async function handleRestock() {
+    if (!eventId) return;
+    const addQuantity = Number(restockAmount);
+    if (!Number.isFinite(addQuantity) || addQuantity <= 0) return;
+    setRestocking(true);
+    try {
+      const res = await fetch("/api/aid-types", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, aidTypeId: aidType.id, addQuantity, actorName, actorRole }),
+      });
+      if (res.ok) onChanged();
+    } catch {
+      // surfaced via the unchanged count on failure — refresh simply won't fire
+    } finally {
+      setRestocking(false);
+    }
+  }
 
   return (
     <Card>
       <CardContent>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-tint text-primary">
+            {/* getAidTypeIcon returns a stable lucide component from a fixed registry, not a freshly-created one. */}
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <Icon className="h-5 w-5" />
           </div>
-          <div>
-            <h3 className="text-[15px] font-semibold text-ink">{aidType.name}</h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[15px] font-semibold text-ink">{aidType.name}</h3>
+              {lowStock && <Badge tone="danger">Low stock</Badge>}
+            </div>
             <p className="text-xs text-ink-faint">{aidType.policy_description}</p>
           </div>
         </div>
@@ -96,6 +144,18 @@ function AidTypeCard({ aidType }: { aidType: AidType }) {
                 className={cn("h-full rounded-full", pct > 25 ? "bg-primary" : "bg-danger")}
                 style={{ width: `${pct}%` }}
               />
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                type="number"
+                value={restockAmount}
+                onChange={(e) => setRestockAmount(e.target.value)}
+                className="w-20"
+                aria-label={`Restock amount for ${aidType.name}`}
+              />
+              <Button variant="secondary" size="sm" loading={restocking} onClick={handleRestock}>
+                <Plus className="h-3.5 w-3.5" /> Restock
+              </Button>
             </div>
           </div>
         ) : (

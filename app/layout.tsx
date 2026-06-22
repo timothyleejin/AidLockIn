@@ -17,6 +17,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "AidLockIn",
   description: "Allocate scarce disaster aid once, fairly, with a globally consistent audit trail.",
+  icons: { icon: "/aidlockin-logo.png" },
 };
 
 export default function RootLayout({

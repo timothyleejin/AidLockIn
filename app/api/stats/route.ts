@@ -4,12 +4,16 @@ import { fetchAuditFeed } from "@/lib/audit";
 import { jsonError, withErrorHandling } from "@/lib/api";
 import type { StatsResponse } from "@/lib/types";
 
+// A pool is "low" once a quarter or less of its original stock remains —
+// the same 25% threshold the /pools progress bars flip to red at.
+const LOW_STOCK_PCT = 25;
+
 export async function GET(req: NextRequest) {
   const eventId = req.nextUrl.searchParams.get("eventId");
   if (!eventId) return jsonError("eventId is required");
 
   return withErrorHandling(async (): Promise<StatsResponse> => {
-    const [householdsHelped, duplicatesPrevented, partnerOrgs, totalAllocations, pendingOverrides, byAidType, recentActivity] =
+    const [householdsHelped, duplicatesPrevented, partnerOrgs, totalAllocations, pendingOverrides, byAidType, lowStock, recentActivity] =
       await Promise.all([
         db
           .query<{ count: string }>(
@@ -44,6 +48,15 @@ export async function GET(req: NextRequest) {
            ORDER BY at.name ASC`,
           [eventId]
         ),
+        db.query<{ name: string; icon: string; remaining_quantity: number; total_quantity: number }>(
+          `SELECT at.name, at.icon, rp.remaining_quantity, rp.total_quantity
+           FROM resource_pools rp
+           JOIN aid_types at ON at.id = rp.aid_type_id
+           WHERE rp.event_id = $1 AND rp.total_quantity > 0
+             AND rp.remaining_quantity * 100 <= rp.total_quantity * $2
+           ORDER BY rp.remaining_quantity::float / rp.total_quantity ASC`,
+          [eventId, LOW_STOCK_PCT]
+        ),
         fetchAuditFeed(eventId, 8),
       ]);
 
@@ -58,6 +71,12 @@ export async function GET(req: NextRequest) {
         icon: r.icon,
         approved: Number(r.approved),
         denied: Number(r.denied),
+      })),
+      lowStock: lowStock.rows.map((r) => ({
+        aidTypeName: r.name,
+        icon: r.icon,
+        remaining: Number(r.remaining_quantity),
+        total: Number(r.total_quantity),
       })),
       recentActivity,
     };

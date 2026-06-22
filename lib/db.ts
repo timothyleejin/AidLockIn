@@ -46,7 +46,7 @@ import {
 export type DbClient = PoolClient;
 
 interface Db {
-  backend: "dsql" | "postgres";
+  backend: "dsql" | "postgres" | "demo";
   query<T = Record<string, unknown>>(
     sql: string,
     params?: unknown[]
@@ -87,7 +87,7 @@ function buildDsqlPool(): AuroraDSQLPool {
   if (process.env.AWS_ROLE_ARN) {
     // Imported lazily so this optional dependency never has to resolve in
     // environments (e.g. local dev against plain Postgres) that don't use it.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { awsCredentialsProvider } = require("@vercel/oidc-aws-credentials-provider");
     config.customCredentialsProvider = awsCredentialsProvider({
       roleArn: process.env.AWS_ROLE_ARN,
@@ -105,7 +105,7 @@ function buildDsqlPool(): AuroraDSQLPool {
   // Keeps this Vercel Function instance warm long enough for idle pooled
   // connections to drain cleanly instead of being cut mid-flight.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { attachDatabasePool } = require("@vercel/functions");
     attachDatabasePool(pool);
   } catch {
@@ -131,8 +131,88 @@ function buildPgPool(): PgPool {
   return pool;
 }
 
+function isDemoMode(): boolean {
+  const v = process.env.DEMO_MODE;
+  return v === "1" || v === "true";
+}
+
+/**
+ * Zero-dependency demo backend: an in-process PGlite (WASM Postgres) that is
+ * migrated and seeded automatically on first use. Lets the whole app run with
+ * no external database at all (`DEMO_MODE=1 npm run dev`) so every screen is
+ * clickable out of the box. Data lives only in this process — it resets on
+ * restart, which is exactly what a throwaway demo wants. PGlite is a single
+ * connection, so it can't reproduce DSQL's commit-time OCC `40001` (the same
+ * caveat as plain Postgres), but the conditional UPDATEs still make the race
+ * demo resolve to one winner.
+ */
+function buildDemoDb(): Db {
+  type PGliteType = import("@electric-sql/pglite").PGlite;
+  let pglite: PGliteType | null = null;
+  let schemaReady: Promise<void> | null = null;
+  let fullReady: Promise<void> | null = null;
+  let seeding = false;
+
+  function shape(res: { rows: unknown[]; affectedRows?: number }) {
+    return { rows: res.rows as never, rowCount: res.affectedRows ?? res.rows.length };
+  }
+
+  function ensureStarted() {
+    if (schemaReady) return;
+    schemaReady = (async () => {
+      const { PGlite } = await import("@electric-sql/pglite");
+      pglite = new PGlite();
+      await pglite.waitReady;
+      const directQuery = async (sql: string, params?: unknown[]) =>
+        shape(await pglite!.query(sql, params ?? []));
+      const { applySchema } = await import("../scripts/migrate");
+      await applySchema(false, directQuery as never);
+    })();
+    fullReady = (async () => {
+      await schemaReady;
+      seeding = true;
+      try {
+        const { seedDemoData } = await import("../scripts/seed");
+        await seedDemoData();
+      } finally {
+        seeding = false;
+      }
+    })();
+  }
+
+  // External callers wait for schema AND seed; the seed's own queries (issued
+  // while `seeding` is true) only wait for the schema, so they don't deadlock
+  // on the seed step they are part of.
+  async function gate() {
+    ensureStarted();
+    await (seeding ? schemaReady! : fullReady!);
+  }
+
+  return {
+    backend: "demo",
+    async query(sql, params) {
+      await gate();
+      return shape(await pglite!.query(sql, params as unknown[]));
+    },
+    async transaction(fn) {
+      await gate();
+      return pglite!.transaction(async (tx) => {
+        const client = {
+          query: async (sql: string, params?: unknown[]) => shape(await tx.query(sql, params ?? [])),
+        };
+        return fn(client as unknown as DbClient);
+      }) as never;
+    },
+  };
+}
+
 function getDb(): Db {
   if (cached) return cached;
+
+  if (isDemoMode()) {
+    cached = buildDemoDb();
+    return cached;
+  }
 
   const useDsql = Boolean(process.env.PGHOST || process.env.DSQL_ENDPOINT);
 

@@ -8,20 +8,26 @@ import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/stat-tile";
 import { useAppState } from "@/components/app-shell/providers";
 import { getAidTypeIcon } from "@/components/icons";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import type { AuditEventRow, StatsResponse } from "@/lib/types";
+import type { DuplicatePattern } from "@/lib/patterns";
 
 export default function ReportsPage() {
   const { eventId, refreshKey } = useAppState();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEventRow[]>([]);
   const [verified, setVerified] = useState<boolean | null>(null);
+  const [patterns, setPatterns] = useState<DuplicatePattern[]>([]);
 
   useEffect(() => {
     if (!eventId) return;
     fetch(`/api/stats?eventId=${eventId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setStats)
+      .catch(() => {});
+    fetch(`/api/patterns?eventId=${eventId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setPatterns)
       .catch(() => {});
     fetch(`/api/audit?eventId=${eventId}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -108,6 +114,41 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="mt-6">
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-warning" />
+              <h3 className="text-[15px] font-semibold text-ink">Repeat duplicate-claim patterns</h3>
+            </div>
+            <p className="mt-1 text-xs text-ink-faint">
+              Households the duplicate guard blocked more than once. Each block already happened — this
+              flags the repeats for a coordinator to review.
+            </p>
+            <div className="mt-4 space-y-2">
+              {patterns.map((p) => (
+                <div
+                  key={p.householdClaimCode}
+                  className="flex items-center justify-between rounded-lg border border-warning-border bg-warning-tint px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-mono font-medium text-ink">{p.householdClaimCode}</span>
+                    <span className="text-xs text-ink-muted">
+                      across {p.aidTypesAttempted} aid type{p.aidTypesAttempted === 1 ? "" : "s"} ·{" "}
+                      last {formatRelativeTime(p.lastAttemptAt)}
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-warning px-2 py-0.5 text-xs font-semibold text-white">
+                    {p.deniedDuplicateCount} blocked
+                  </span>
+                </div>
+              ))}
+              {patterns.length === 0 && (
+                <p className="text-sm text-ink-faint">No repeat duplicate patterns detected.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="mt-6">
           <CardContent className="flex items-center justify-between gap-4">
