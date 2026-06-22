@@ -57,57 +57,88 @@ function firstCodeLine(statement: string): string {
   return statement.replace(/\s+/g, " ").trim().slice(0, 72);
 }
 
-async function main() {
-  const schemaPath = path.join(__dirname, "..", "db", "schema.sql");
+/**
+ * Applies db/schema.sql to whatever backend `db` is bound to. Reused by both
+ * the CLI migration (below) and the in-process demo backend (lib/db.ts), so
+ * the demo's schema is the exact same DDL as production. `verbose` controls
+ * the per-statement logging the CLI wants but the demo init doesn't.
+ *
+ * On Aurora DSQL, `CREATE INDEX ASYNC` returns a job to wait on; on any other
+ * backend (plain Postgres or the PGlite demo) we strip ASYNC and create the
+ * index synchronously.
+ */
+type SchemaQuery = <T = Record<string, unknown>>(
+  sql: string,
+  params?: unknown[]
+) => Promise<{ rows: T[]; rowCount: number | null }>;
+
+export async function applySchema(verbose = false, query?: SchemaQuery): Promise<void> {
+  // The demo backend injects a query fn that talks straight to its PGlite
+  // instance — it can't route schema DDL through the public `db`, because the
+  // public path waits on schema readiness and would deadlock on itself.
+  const run: SchemaQuery = query ?? ((sql, params) => db.query(sql, params));
+  // process.cwd() (the project root) resolves correctly both as a CLI script
+  // and when bundled into the Next server for the demo backend, where
+  // __dirname would point inside .next/.
+  const schemaPath = path.join(process.cwd(), "db", "schema.sql");
   const sql = readFileSync(schemaPath, "utf8");
   const statements = splitStatements(sql);
+  const isDsql = db.backend === "dsql";
 
-  console.log(
-    `Applying ${statements.length} statements to ${db.backend === "dsql" ? "Aurora DSQL" : "local Postgres"}...\n`
-  );
+  if (verbose) {
+    console.log(
+      `Applying ${statements.length} statements to ${isDsql ? "Aurora DSQL" : db.backend}...\n`
+    );
+  }
 
   const pendingJobs: string[] = [];
 
   for (let i = 0; i < statements.length; i++) {
     const statement = statements[i];
     const isAsyncIndex = /INDEX\s+ASYNC/i.test(statement);
-    const label = firstCodeLine(statement);
-    process.stdout.write(`  [${i + 1}/${statements.length}] ${label} ... `);
+    if (verbose) process.stdout.write(`  [${i + 1}/${statements.length}] ${firstCodeLine(statement)} ... `);
 
     try {
-      if (isAsyncIndex && db.backend === "postgres") {
-        const synced = statement.replace(/INDEX\s+ASYNC/i, "INDEX");
-        await db.query(synced);
-        console.log("ok (sync index, local pg)");
+      if (isAsyncIndex && !isDsql) {
+        await run(statement.replace(/INDEX\s+ASYNC/i, "INDEX"));
+        if (verbose) console.log("ok (sync index)");
         continue;
       }
 
-      const { rows } = await db.query<{ job_id?: string }>(statement);
+      const { rows } = await run<{ job_id?: string }>(statement);
       if (isAsyncIndex && rows[0]?.job_id) {
         pendingJobs.push(rows[0].job_id);
-        console.log(`ok (async job ${rows[0].job_id})`);
-      } else {
+        if (verbose) console.log(`ok (async job ${rows[0].job_id})`);
+      } else if (verbose) {
         console.log("ok");
       }
     } catch (err) {
-      console.log("FAILED");
+      if (verbose) console.log("FAILED");
       throw err;
     }
   }
 
   if (pendingJobs.length > 0) {
-    console.log(`\nWaiting on ${pendingJobs.length} async index build(s)...`);
+    if (verbose) console.log(`\nWaiting on ${pendingJobs.length} async index build(s)...`);
     for (const jobId of pendingJobs) {
       await db.query(`SELECT sys.wait_for_job($1)`, [jobId]);
-      console.log(`  job ${jobId} ready`);
+      if (verbose) console.log(`  job ${jobId} ready`);
     }
   }
+}
 
+async function main() {
+  await applySchema(true);
   console.log("\nMigration complete.");
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("\nMigration failed:", err);
-  process.exit(1);
-});
+// Only run as a CLI script (npm run db:migrate). When imported by the demo
+// backend (lib/db.ts), applySchema() is called directly instead.
+const invokedDirectly = Boolean(process.argv[1] && /migrate\.(ts|js)$/.test(process.argv[1]));
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error("\nMigration failed:", err);
+    process.exit(1);
+  });
+}

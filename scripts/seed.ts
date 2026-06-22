@@ -84,7 +84,7 @@ interface Worker {
   point: string;
 }
 
-async function main() {
+export async function seedDemoData() {
   console.log(`Seeding AidLockIn demo data (backend: ${db.backend})...\n`);
 
   console.log("Creating organizations...");
@@ -216,10 +216,16 @@ async function main() {
   console.log(`  Organizations: ${partners.length}`);
   console.log(`  Aid types:     5`);
   console.log(`  Households:    ${householdCodes.length}`);
-  process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+// Run as a CLI script (npm run db:seed). When imported by the demo backend
+// (lib/db.ts) this block is skipped and seedDemoData() is called directly.
+const invokedDirectly = Boolean(process.argv[1] && /seed\.(ts|js)$/.test(process.argv[1]));
+if (invokedDirectly) {
+  seedDemoData()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("Seed failed:", err);
+      process.exit(1);
+    });
+}
