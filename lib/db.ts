@@ -87,7 +87,7 @@ function buildDsqlPool(): AuroraDSQLPool {
   if (process.env.AWS_ROLE_ARN) {
     // Imported lazily so this optional dependency never has to resolve in
     // environments (e.g. local dev against plain Postgres) that don't use it.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { awsCredentialsProvider } = require("@vercel/oidc-aws-credentials-provider");
     config.customCredentialsProvider = awsCredentialsProvider({
       roleArn: process.env.AWS_ROLE_ARN,
@@ -105,7 +105,7 @@ function buildDsqlPool(): AuroraDSQLPool {
   // Keeps this Vercel Function instance warm long enough for idle pooled
   // connections to drain cleanly instead of being cut mid-flight.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { attachDatabasePool } = require("@vercel/functions");
     attachDatabasePool(pool);
   } catch {

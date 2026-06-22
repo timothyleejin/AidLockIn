@@ -118,6 +118,8 @@ function AidTypeCard({
       <CardContent>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-tint text-primary">
+            {/* getAidTypeIcon returns a stable lucide component from a fixed registry, not a freshly-created one. */}
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <Icon className="h-5 w-5" />
           </div>
           <div className="flex-1">
